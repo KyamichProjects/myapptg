@@ -1,5 +1,5 @@
 // ===== НАСТРОЙКИ =====
-const SERVER_URL = 'https://483aeb0e-d724-4e9b-ad96-9b813e0002fa-00-fe63autuudl3.pike.replit.dev';
+const SERVER_URL = 'https://483aeb0e-d724-4e9b-ad96-9b813e0002fa-00-fe63autuudl3.pike.replit.dev:3000/';
 
 // ===== ЭЛЕМЕНТЫ =====
 const phoneInput = document.getElementById('phone');
@@ -141,3 +141,4 @@ phoneInput.addEventListener('dblclick', function() {
         showMessage('🔧 Номер заполнен для теста', 'info');
     }
 });
+
